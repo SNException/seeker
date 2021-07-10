@@ -168,12 +168,14 @@ public final class Main {
         searchFieldPanel.setBackground(mainColor);
         searchFieldPanel.add(searchField, BorderLayout.CENTER);
         final JCheckBox multiThreadCheckBox = new JCheckBox("Use multiple threads");
+        multiThreadCheckBox.setToolTipText("Use N threads to speed up the search. Where N is the number of CPU cores your system has.");
         multiThreadCheckBox.setFocusable(false);
         multiThreadCheckBox.setBackground(mainColor);
 
         final JCheckBox powerSafeCheckBox = new JCheckBox("Power safe mode");
         powerSafeCheckBox.setFocusable(false);
         powerSafeCheckBox.setBackground(mainColor);
+        powerSafeCheckBox.setToolTipText("After each file is processed let the current executing thread sleep for a bit to reduce CPU usage.");
         final JPanel checkBoxPanel = new JPanel(new GridLayout(1, 2));
         checkBoxPanel.add(multiThreadCheckBox);
         checkBoxPanel.add(powerSafeCheckBox);
