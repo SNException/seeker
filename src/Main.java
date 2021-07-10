@@ -226,6 +226,11 @@ public final class Main {
                                 });
                             } finally {
                                 abort = false;
+
+                                // try to free some memory
+                                Runtime.getRuntime().gc();
+                                Runtime.getRuntime().runFinalization();
+
                                 // flush display buffer to make sure the user is seeing all the updates
                                 Toolkit.getDefaultToolkit().sync();
                             }
@@ -314,6 +319,8 @@ public final class Main {
                     listFiles(file.getAbsolutePath(), filter, files);
                 }
             }
+        } else {
+            // TODO(nschultz): Handle this
         }
     }
 
@@ -446,12 +453,15 @@ public final class Main {
     }
 
 
+    private static ThreadPoolExecutor threadPool = null; // init in main
+
     private static void seekMultiThreaded(final JProgressBar progressBar, final JLabel resultLabel,
                                          final JLabel scannedLabel, final JTable table,
                                          final String directory, final String file,
                                          final String searchString) {
 
         assert !EventQueue.isDispatchThread();
+        assert threadPool != null;
 
         assert resultLabel  != null;
         assert scannedLabel != null;
@@ -467,7 +477,9 @@ public final class Main {
 
         progressBar.setIndeterminate(true);
         final ArrayList<String> dirs = listRootDirectories(directory);
-        if (dirs.size() >= 2) {
+        // TODO(nschultz): NOT WORKING, WE GOT DIFFERENT RESULT BETWEEN MULTI AND SINGLE but only if we do dir
+        // searching multi
+        if (dirs.size() >= 2 && false) {
             // TODO(nschultz): use thread pooling instead
             final List<String> dirs1 = dirs.subList(0, dirs.size() / 2);
             final List<String> dirs2 = dirs.subList(dirs.size() / 2, dirs.size());
@@ -508,7 +520,6 @@ public final class Main {
 
         if (fileNames.size() > cores * 2) {
             final List<List<Object>> slices = slice(fileNames.toArray(), cores);
-            final ThreadPoolExecutor threadPool = createThreadPool(cores);
 
             final AtomicInteger occurences = new AtomicInteger(0);
             final AtomicInteger scanned    = new AtomicInteger(1);
@@ -562,8 +573,6 @@ public final class Main {
                     assert false : "Not supposed to interrupt this!";
                 }
             }
-
-            threadPool.shutdown(); // TODO(nschultz): We don't want to shutdown, but instead reuse
         } else {
             // TODO(nschultz): Count files twice in this case!!!
             seekSingleThreaded(progressBar, resultLabel, scannedLabel, table, directory, file, searchString);
@@ -573,6 +582,8 @@ public final class Main {
     public static void main(final String[] args) {
         EventQueue.invokeLater(() -> {
             applySystemLookAndFeel();
+            final int cores = Runtime.getRuntime().availableProcessors();
+            threadPool = createThreadPool(cores);
             constructUI();
         });
     }
