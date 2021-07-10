@@ -8,6 +8,7 @@ import java.util.concurrent.*;
 import java.util.regex.*;
 import java.util.stream.*;
 import javax.swing.*;
+import javax.swing.plaf.basic.*;
 import javax.swing.table.*;
 
 public final class Main {
@@ -49,10 +50,6 @@ public final class Main {
         UIManager.put("Table.font", mainFont);
         UIManager.put("TableHeader.font", mainFont.deriveFont(Font.BOLD));
         UIManager.put("TextField.font", mainFont);
-        UIManager.put("ProgressBar.background", mainColor);
-        UIManager.put("ProgressBar.foreground", mainColor);
-        UIManager.put("ProgressBar.selectionBackground", mainColor);
-        UIManager.put("ProgressBar.selectionForeground", mainColor);
 
         final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 
@@ -128,12 +125,16 @@ public final class Main {
         resultPanel.add(resultLabelPanel, BorderLayout.NORTH);
 
         final JProgressBar progressBar = new JProgressBar();
-        // progressBar.setBackground(mainColor);
-        // progressBar.setStringPainted(true);
 
         final JScrollPane scrollPane = new JScrollPane(resultTable);
-        scrollPane.getVerticalScrollBar().setBackground(Color.BLUE);
-        scrollPane.getHorizontalScrollBar().setBackground(Color.BLUE);
+        scrollPane.getVerticalScrollBar().setBackground(new Color(248, 248, 244));
+        //scrollPane.getHorizontalScrollBar().setBackground(Color.BLUE);
+        scrollPane.getVerticalScrollBar().setUI(new BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                super.thumbColor = new Color(193, 213, 250);
+            }
+        });
         resultPanel.add(scrollPane, BorderLayout.CENTER);
 
         final JPanel inputPanel = new JPanel(new BorderLayout());
