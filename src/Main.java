@@ -324,6 +324,19 @@ public final class Main {
         }
     }
 
+    private static ArrayList<String> listRootFiles(final String location) {
+        assert location != null;
+
+        final ArrayList<String> fileNames = new ArrayList<>();
+        final File[] files = new File(location).listFiles();
+        for (final File file : files) {
+            if (file.isFile()) {
+                fileNames.add(file.getAbsolutePath());
+            }
+        }
+        return fileNames;
+    }
+
     private static ArrayList<String> listRootDirectories(final String location) {
         assert location != null;
 
@@ -455,6 +468,7 @@ public final class Main {
 
     private static ThreadPoolExecutor threadPool = null; // init in main
 
+    // TODO(nschultz): Can not abort mutli threaded seek yet!
     private static void seekMultiThreaded(final JProgressBar progressBar, final JLabel resultLabel,
                                          final JLabel scannedLabel, final JTable table,
                                          final String directory, final String file,
@@ -477,9 +491,7 @@ public final class Main {
 
         progressBar.setIndeterminate(true);
         final ArrayList<String> dirs = listRootDirectories(directory);
-        // TODO(nschultz): NOT WORKING, WE GOT DIFFERENT RESULT BETWEEN MULTI AND SINGLE but only if we do dir
-        // searching multi
-        if (dirs.size() >= 2 && false) {
+        if (dirs.size() >= 2) {
             // TODO(nschultz): use thread pooling instead
             final List<String> dirs1 = dirs.subList(0, dirs.size() / 2);
             final List<String> dirs2 = dirs.subList(dirs.size() / 2, dirs.size());
@@ -510,6 +522,7 @@ public final class Main {
             }
             fileNames.addAll(collection1);
             fileNames.addAll(collection2);
+            fileNames.addAll(listRootFiles(directory));
         } else {
             listFiles(directory, file, fileNames);
         }
