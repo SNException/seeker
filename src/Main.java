@@ -10,10 +10,6 @@ import java.util.stream.*;
 import javax.swing.*;
 import javax.swing.table.*;
 
-// TODO(nschultz): Can i talk to VIM to open the double clicked file ?
-// TODO(nschultz): Abort running search
-// TODO(nschultz): Fix UI xD
-// TODO(nschultz): Sub directories search enabled/disable option
 public final class Main {
 
     static {
@@ -89,6 +85,16 @@ public final class Main {
             public boolean isCellEditable(final int row, final int column) {
                return false;
             }
+
+            /*@Override
+            public Component prepareRenderer(final TableCellRenderer renderer, final int row, final int column) {
+               final Component component = super.prepareRenderer(renderer, row, column);
+               final int rendererWidth = component.getPreferredSize().width + 8;
+               final TableColumn tableColumn = getColumnModel().getColumn(column);
+               final double max = Math.max(rendererWidth + getIntercellSpacing().width, tableColumn.getPreferredWidth());
+               tableColumn.setPreferredWidth((int) max);
+               return component;
+            }*/
         };
         resultTable.addMouseListener(new MouseAdapter() {
             @Override
@@ -204,11 +210,12 @@ public final class Main {
                                     progressBar.setValue(0);
                                 });
                             } catch (final Throwable ex) {
+                                ex.printStackTrace(System.err);
                                 EventQueue.invokeLater(() -> {
                                     searchField.setEnabled(true);
-                                    resultLabel.setText("Occurences: -1...");
-                                    timeLabel.setText("Time: -1...");
-                                    scannedLabel.setText("Files scanned: -1...");
+                                    resultLabel.setText("Occurences: -1");
+                                    timeLabel.setText("Time: -1");
+                                    scannedLabel.setText("Files scanned: -1");
                                     progressBar.setIndeterminate(false);
                                     progressBar.setValue(0);
                                 });
@@ -236,6 +243,7 @@ public final class Main {
         root.add(progressBar, BorderLayout.SOUTH);
 
         final JFrame frame = new JFrame("Seeker v0.1.0");
+        frame.setIconImage(new ImageIcon("res/icon.png").getImage());
         frame.setContentPane(root);
         frame.setJMenuBar(menuBar);
         frame.setSize(screenSize.width / 2, screenSize.height / 2); // TODO(nschultz): Clamp, so we do not go below a certain value
@@ -244,11 +252,12 @@ public final class Main {
         frame.setVisible(true);
     }
 
-    private static String[] readLines(final String file) {
-        assert file != null;
+    private static String[] readLines(final String name) {
+        assert name != null;
 
+        final File file = new File(name);
         final StringBuilder sbuffer = new StringBuilder(4096);
-        try (final InputStream in = new FileInputStream(new File(file))) {
+        try (final InputStream in = new FileInputStream(file)) {
             for (;;) {
                 final byte[] chunk = new byte[4096]; // likely a page
                 final int readBytes = in.read(chunk);
@@ -257,9 +266,6 @@ public final class Main {
                 sbuffer.append(new String(chunk, 0, readBytes));
             }
         }  catch (final IOException eX) {
-            return null;
-        } catch (final OutOfMemoryError oom) {
-            System.err.println("Not enough memory for: " + file); // TODO(nschultz): Temporary
             return null;
         }
     }
@@ -274,6 +280,13 @@ public final class Main {
         if (list != null) {
             for (final File file : list) {
                 if (file.isFile()) {
+                    if (file.length() >= 100000000) { // 100 MB
+                        // TODO(nschultz): HACK!
+                        // File is to large for us to read into memory.
+                        // This is of course a hack and is just here to avoid OutOfMemory error to crash the application.
+                        System.err.printf("Skipped '%s' because it is to large!\n", file.getName());
+                        continue;
+                    }
                     if (file.getName().matches(filter)) {
                         files.add(file.getAbsolutePath());
                     }
