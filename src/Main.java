@@ -308,12 +308,44 @@ public final class Main {
         openMenuItem.setBackground(mainColor);
         openMenuItem.addActionListener(e -> {
             final JFileChooser chooser = new JFileChooser();
+            chooser.setCurrentDirectory(new File(dirField.getText())); // if file does not exist the default value of the chooser will be used (whatever that is)
             chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             final int option = chooser.showOpenDialog(Frame.getFrames()[0]); // HACK!
             if (option == JFileChooser.APPROVE_OPTION) {
                 final String dst = chooser.getSelectedFile().getAbsolutePath();
                 dirField.setText(dst);
                 dirField.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+            }
+        });
+
+        final JMenuItem saveMenuItem = new JMenuItem("Save results...");
+        saveMenuItem.setOpaque(true);
+        saveMenuItem.setBackground(mainColor);
+        saveMenuItem.addActionListener(e -> {
+            final Vector data = dtm.getDataVector();
+            if (data.isEmpty()) {
+                JOptionPane.showMessageDialog(Frame.getFrames()[0], "No search data to save!", "No data", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            final JFileChooser chooser = new JFileChooser();
+            chooser.setCurrentDirectory(new File(dirField.getText())); // if file does not exist the default value of the chooser will be used (whatever that is)
+            final int option = chooser.showSaveDialog(null);
+            if (option == JFileChooser.APPROVE_OPTION) {
+                final File dst = chooser.getSelectedFile();
+
+                final StringBuilder sbuffer = new StringBuilder(); {
+                    for (final Object o : data) {
+                        sbuffer.append(o.toString() + "\n");
+                    }
+                }
+
+                try (final FileWriter fw = new FileWriter(chooser.getSelectedFile())) {
+                    fw.write(sbuffer.toString());
+                    JOptionPane.showMessageDialog(Frame.getFrames()[0], "Successfully saved results to disk!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                } catch (final IOException ex) {
+                    JOptionPane.showMessageDialog(Frame.getFrames()[0], "Failed to save results! Reason: " + ex.getMessage(), "Failure", JOptionPane.ERROR_MESSAGE);
+                }
             }
         });
 
@@ -345,6 +377,7 @@ public final class Main {
         });
 
         fileMenu.add(openMenuItem);
+        fileMenu.add(saveMenuItem);
         fileMenu.add(clearMenuItem);
         fileMenu.add(new JSeparator());
         fileMenu.add(exitMenuItem);
