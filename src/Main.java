@@ -5,6 +5,7 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
 import java.util.regex.*;
 import java.util.stream.*;
 import javax.swing.*;
@@ -34,21 +35,12 @@ public final class Main {
     private static void constructUI() {
         assert EventQueue.isDispatchThread();
 
-        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(new KeyEventDispatcher() {
-            @Override
-            public boolean dispatchKeyEvent(final KeyEvent evt) {
-                if ((evt.getKeyCode() == KeyEvent.VK_C) && ((evt.getModifiersEx() & KeyEvent.CTRL_DOWN_MASK) != 0)) {
-                    abort = true;
-                }
-                return false;
-            }
-        });
-
         final Font mainFont = new Font("Consolas", Font.PLAIN, 14); // TODO(nschultz): Check if font is installed
         final Color mainColor = new Color(235, 233, 216);
+        UIManager.put("CheckBox.font", mainFont);
         UIManager.put("Label.font", mainFont);
         UIManager.put("Table.font", mainFont);
-        UIManager.put("TableHeader.font", mainFont.deriveFont(Font.BOLD));
+        UIManager.put("TableHeader.font", mainFont.deriveFont(Font.BOLD, 16));
         UIManager.put("TextField.font", mainFont);
 
         final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
@@ -171,7 +163,15 @@ public final class Main {
         searchField.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
         fieldInputPanel.add(dirField);
         fieldInputPanel.add(fileField);
-        fieldInputPanel.add(searchField);
+
+        final JPanel searchFieldPanel = new JPanel(new BorderLayout());
+        searchFieldPanel.setBackground(mainColor);
+        searchFieldPanel.add(searchField, BorderLayout.CENTER);
+        final JCheckBox multiThreadCheckBox = new JCheckBox("Use multiple threads");
+        multiThreadCheckBox.setFocusable(false);
+        multiThreadCheckBox.setBackground(mainColor);
+        searchFieldPanel.add(multiThreadCheckBox, BorderLayout.EAST);
+        fieldInputPanel.add(searchFieldPanel);
 
         final JPanel labelInputPanel = new JPanel(new GridLayout(3, 1, 10, 1));
         labelInputPanel.setBackground(mainColor);
@@ -200,7 +200,11 @@ public final class Main {
 
                                 final long start =  System.nanoTime() / 1000000;
                                 abort = false;
-                                seekSingleThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText());
+                                if (multiThreadCheckBox.isSelected()) {
+                                    seekMultiThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText());
+                                } else {
+                                    seekSingleThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText());
+                                }
                                 final long end = System.nanoTime() / 1000000;
                                 final long took = end - start;
 
@@ -242,6 +246,21 @@ public final class Main {
         root.add(inputPanel,  BorderLayout.NORTH);
         root.add(resultPanel, BorderLayout.CENTER);
         root.add(progressBar, BorderLayout.SOUTH);
+
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(new KeyEventDispatcher() {
+            @Override
+            public boolean dispatchKeyEvent(final KeyEvent evt) {
+                if ((evt.getKeyCode() == KeyEvent.VK_C) && ((evt.getModifiersEx() & KeyEvent.CTRL_DOWN_MASK) != 0)) {
+                    abort = true;
+                }
+
+                /*if (evt.getKeyCode() == KeyEvent.VK_TAB) {
+                    searchField.requestFocus();
+                }*/
+
+                return false;
+            }
+        });
 
         final JFrame frame = new JFrame("Seeker v0.1.0");
         frame.setIconImage(new ImageIcon("res/icon.png").getImage());
@@ -298,6 +317,20 @@ public final class Main {
         }
     }
 
+    // TODO: use this to slice!!!
+    private ArrayList<String> listRootDirectories(final String location) {
+        assert location != null;
+
+        final ArrayList<String> dirNames = new ArrayList<>();
+        final File[] files = new File(location).listFiles();
+        for (final File file : files) {
+            if (file.isDirectory()) {
+                dirNames.add(file.getAbsolutePath());
+            }
+        }
+        return dirNames;
+    }
+
     private static volatile boolean abort = false;
 
     private static void seekSingleThreaded(final JProgressBar progressBar, final JLabel resultLabel,
@@ -337,6 +370,8 @@ public final class Main {
 
                     lineNr[0] += 1;
                     if (line.contains(searchString)) {
+                        occurences[0] += 1;
+                        // :lineNrConst:
                         // We have to use a separate variable, otherwise we would get inconsistent results,
                         // because invokeLater() might take a while and referenceig 'lineNr[0]' directly might then
                         // return a different index (often the last line number in the file).
@@ -348,7 +383,6 @@ public final class Main {
                             table.repaint();
                             resultLabel.setText("Occurences: " + occurences[0]);
                         });
-                        occurences[0] += 1;
                     }
                 }
             } else {
@@ -367,7 +401,7 @@ public final class Main {
         }
     }
 
-    /*private static ThreadPoolExecutor createThreadPool(final int amount) {
+    private static ThreadPoolExecutor createThreadPool(final int amount) {
         assert amount > 0;
 
         final ThreadPoolExecutor threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(amount);
@@ -410,19 +444,25 @@ public final class Main {
             }
         }
         return slices;
-    }*/
+    }
 
 
-    /*private static int seek(final JProgressBar progressBar, final JTable table, final String directory, final String file, final String searchString) {
+    private static void seekMultiThreaded(final JProgressBar progressBar, final JLabel resultLabel,
+                                         final JLabel scannedLabel, final JTable table,
+                                         final String directory, final String file,
+                                         final String searchString) {
+
         assert !EventQueue.isDispatchThread();
 
+        assert resultLabel  != null;
+        assert scannedLabel != null;
         assert progressBar  != null;
         assert table        != null;
         assert directory    != null;
         assert file         != null;
         assert searchString != null;
-        if (searchString.strip().isEmpty()) return 0;
 
+        // TODO(nschultz: Multithread getting the files!!!
         final ArrayList<String> fileNames = new ArrayList<>(100); {
             progressBar.setIndeterminate(true);
             listFiles(directory, file, fileNames);
@@ -436,35 +476,43 @@ public final class Main {
             final List<List<Object>> slices = slice(fileNames.toArray(), cores);
             final ThreadPoolExecutor threadPool = createThreadPool(cores);
 
-            final int[] occurences = {0};
+            final AtomicInteger occurences = new AtomicInteger(0);
+            final AtomicInteger scanned    = new AtomicInteger(1);
             final ArrayList<Future> futures = new ArrayList<>();
             for (final List<Object> slice : slices) {
                 final Future<?> future = threadPool.submit(() -> {
                     for (final Object o : slice) {
                         final String fileName = (String) o;
 
-                        final ByteArrayOutputStream memory = new ByteArrayOutputStream();
-                        final boolean success = readEntireFileIntoMemory(fileName, memory);
-                        if (success) {
-                            final String[] lines = new String(memory.toByteArray()).split("\n");
-                            final int[] lineNr = {1};
+                        final String[] lines = readLines(fileName);
+                        if (lines != null) {
+                            final AtomicInteger lineNr = new AtomicInteger(0);
                             for (final String line : lines) {
+
+                                lineNr.incrementAndGet();
                                 if (line.contains(searchString)) { // use matches()?
+                                    occurences.incrementAndGet();
+                                    final int lineNrConst = lineNr.get(); // :lineNrConst:
                                     EventQueue.invokeLater(() -> {
                                         final DefaultTableModel dtm = (DefaultTableModel) table.getModel();
-                                        dtm.addRow(new Object[] {fileName, lineNr[0], line.strip()});
+                                        dtm.addRow(new Object[] {fileName, lineNrConst, line.strip()});
                                         dtm.fireTableDataChanged();
                                         table.repaint();
-                                        occurences[0] += 1;
+                                        resultLabel.setText("Occurences: " + occurences.get());
                                     });
                                 }
-                                lineNr[0] += 1;
                             }
                         } else {
                             // TODO(nschultz): Handle this case!
                             // System.err.println("Failed to read: " + fileName);
                         }
-                        progressBar.setValue(progressBar.getValue() + 1);
+                        EventQueue.invokeLater(() -> { // TODO(nschultz): NOT THREAD SAFE!
+                            progressBar.setValue(progressBar.getValue() + 1);
+                        });
+                        scanned.incrementAndGet();
+                        EventQueue.invokeLater(() -> {
+                            scannedLabel.setText("Files scanned: " + scanned.get());
+                        });
                     }
                 });
                 futures.add(future);
@@ -481,37 +529,12 @@ public final class Main {
                 }
             }
 
-            threadPool.shutdown();
-
-            return occurences[0];
+            threadPool.shutdown(); // TODO(nschultz): We don't want to shutdown, but instead reuse
         } else {
-            final int[] occurences = {0};
-            for (final String fileName : fileNames) {
-                final ByteArrayOutputStream memory = new ByteArrayOutputStream();
-                final boolean success = readEntireFileIntoMemory(fileName, memory);
-                if (success) {
-                    final String[] lines = new String(memory.toByteArray()).split("\n");
-                    final int[] lineNr = {1}; // Has to be an array because the java compiler is a  piece of garbage and complains about variables having to be final inside lambda blocks.
-                    for (final String line : lines) {
-                        if (line.contains(searchString)) {
-                            EventQueue.invokeLater(() -> {
-                                final DefaultTableModel dtm = (DefaultTableModel) table.getModel();
-                                dtm.addRow(new Object[] {fileName, lineNr[0], line.strip()});
-                                dtm.fireTableDataChanged();
-                                table.repaint();
-                                occurences[0] += 1;
-                            });
-                        }
-                        lineNr[0] += 1;
-                    }
-                } else {
-                    // TODO(nschultz): Handle this case!
-                    // System.err.println("Failed to read: " + fileName);
-                }
-            }
-            return occurences[0];
+            // TODO(nschultz): Count files twice in this case!!!
+            seekSingleThreaded(progressBar, resultLabel, scannedLabel, table, directory, file, searchString);
         }
-    }*/
+    }
 
     public static void main(final String[] args) {
         EventQueue.invokeLater(() -> {
