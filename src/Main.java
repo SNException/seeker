@@ -13,6 +13,8 @@ import javax.swing.plaf.basic.*;
 import javax.swing.table.*;
 
 // TODO(nschultz): read N MB / sec display
+// TODO(nschultz): Clear menu item (reset state)
+// TODO(nschultz): Preference dialog where all the setting will 'live'
 public final class Main {
 
     static {
@@ -278,6 +280,10 @@ public final class Main {
             public boolean dispatchKeyEvent(final KeyEvent evt) {
                 if ((evt.getKeyCode() == KeyEvent.VK_C) && ((evt.getModifiersEx() & KeyEvent.CTRL_DOWN_MASK) != 0)) {
                     abort = true;
+
+                    searchField.setEnabled(true);
+                    progressBar.setIndeterminate(false);
+                    progressBar.setValue(0);
                 }
 
                 /*if (evt.getKeyCode() == KeyEvent.VK_TAB) {
@@ -362,6 +368,8 @@ public final class Main {
         assert start  != null;
         assert filter != null;
         assert files  != null;
+
+        if (abort) return;
 
         final File directory = new File(start);
         final File[] list = directory.listFiles();
