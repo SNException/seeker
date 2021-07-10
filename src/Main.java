@@ -13,7 +13,6 @@ import javax.swing.plaf.basic.*;
 import javax.swing.table.*;
 
 // TODO(nschultz): read N MB / sec display
-// TODO(nschultz): Clear menu item (reset state)
 // TODO(nschultz): Preference dialog where all the setting will 'live'
 public final class Main {
 
@@ -207,6 +206,7 @@ public final class Main {
                         // clear previous results
                         dtm.getDataVector().removeAllElements();
                         dtm.fireTableDataChanged();
+                        resultTable.repaint();
 
                         new Thread(() -> {
                             try {
@@ -317,13 +317,36 @@ public final class Main {
             }
         });
 
+        final JMenuItem clearMenuItem = new JMenuItem("Clear");
+        clearMenuItem.setOpaque(true);
+        clearMenuItem.setBackground(mainColor);
+        clearMenuItem.addActionListener(e -> {
+            if (searchField.isEnabled()) { // Indicator that we are still seeking! HACK!
+                searchField.setEnabled(true);
+                resultLabel.setText("Occurences: -1");
+                timeLabel.setText("Time: -1");
+                scannedLabel.setText("Files scanned: -1");
+                progressBar.setIndeterminate(false);
+                progressBar.setValue(0);
+
+                dtm.getDataVector().removeAllElements();
+                dtm.fireTableDataChanged();
+                resultTable.repaint();
+
+                Toolkit.getDefaultToolkit().sync();
+            }
+        });
+
         final JMenuItem exitMenuItem = new JMenuItem("Exit");
         exitMenuItem.setOpaque(true);
         exitMenuItem.setBackground(mainColor);
         exitMenuItem.addActionListener(e -> {
             System.exit(0);
         });
+
         fileMenu.add(openMenuItem);
+        fileMenu.add(clearMenuItem);
+        fileMenu.add(new JSeparator());
         fileMenu.add(exitMenuItem);
 
         final JMenu helpMenu = new JMenu("Help");
