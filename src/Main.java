@@ -233,7 +233,7 @@ public final class Main {
                                     progressBar.setValue(0);
                                 });
                             } catch (final Throwable ex) {
-                                ex.printStackTrace(System.err);
+                                ex.printStackTrace(System.err); // TODO(nschultz): Temporary
                                 EventQueue.invokeLater(() -> {
                                     searchField.setEnabled(true);
                                     resultLabel.setText("Occurences: -1");
@@ -469,7 +469,7 @@ public final class Main {
                     if (abort) return;
 
                     lineNr[0] += 1;
-                    if (line.contains(searchString)) {
+                    if (line.indexOf(searchString) != -1) {
                         occurences[0] += 1;
                         // :lineNrConst:
                         // We have to use a separate variable, otherwise we would get inconsistent results,
@@ -648,7 +648,7 @@ public final class Main {
                             for (final String line : lines) {
 
                                 lineNr.incrementAndGet();
-                                if (line.contains(searchString)) { // use matches()?
+                                if (line.indexOf(searchString) != -1) { // use matches()?
                                     occurences.incrementAndGet();
                                     final int lineNrConst = lineNr.get(); // :lineNrConst:
                                     EventQueue.invokeLater(() -> {
