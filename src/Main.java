@@ -12,6 +12,7 @@ import javax.swing.*;
 import javax.swing.plaf.basic.*;
 import javax.swing.table.*;
 
+// TODO(nschultz): read N MB / sec display
 public final class Main {
 
     static {
@@ -164,6 +165,18 @@ public final class Main {
         searchFieldPanel.setBackground(mainColor);
         searchFieldPanel.add(searchField, BorderLayout.CENTER);
         final JCheckBox multiThreadCheckBox = new JCheckBox("Use multiple threads");
+        multiThreadCheckBox.addActionListener(e -> {
+            if (multiThreadCheckBox.isSelected()) {
+                System.err.println("aaaa");
+                if (threadPool != null) {
+                    threadPool.shutdown();
+                }
+                // Recreate the threadpool when the checkbox gets toggled.
+                // We have to do this because 'availableProcessors' can return different values overtime.
+                final int cores = Runtime.getRuntime().availableProcessors();
+                threadPool = createThreadPool(cores);
+            }
+        });
         multiThreadCheckBox.setToolTipText("Use N threads to speed up the search. Where N is the number of CPU cores your system has.");
         multiThreadCheckBox.setFocusable(false);
         multiThreadCheckBox.setBackground(mainColor);
@@ -540,7 +553,7 @@ public final class Main {
         return slices;
     }
 
-    private static ThreadPoolExecutor threadPool = null; // init in main
+    private static ThreadPoolExecutor threadPool = null;
 
     private static void seekMultiThreaded(final JProgressBar progressBar, final JLabel resultLabel,
                                          final JLabel scannedLabel, final JTable table,
@@ -679,8 +692,6 @@ public final class Main {
     public static void main(final String[] args) {
         EventQueue.invokeLater(() -> {
             applySystemLookAndFeel();
-            final int cores = Runtime.getRuntime().availableProcessors();
-            threadPool = createThreadPool(cores);
             constructUI();
         });
     }
