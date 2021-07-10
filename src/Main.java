@@ -317,8 +317,7 @@ public final class Main {
         }
     }
 
-    // TODO: use this to slice!!!
-    private ArrayList<String> listRootDirectories(final String location) {
+    private static ArrayList<String> listRootDirectories(final String location) {
         assert location != null;
 
         final ArrayList<String> dirNames = new ArrayList<>();
@@ -462,16 +461,51 @@ public final class Main {
         assert file         != null;
         assert searchString != null;
 
-        // TODO(nschultz: Multithread getting the files!!!
-        final ArrayList<String> fileNames = new ArrayList<>(100); {
-            progressBar.setIndeterminate(true);
+        final int cores = Runtime.getRuntime().availableProcessors();
+
+        final ArrayList<String> fileNames = new ArrayList<>(100);
+
+        progressBar.setIndeterminate(true);
+        final ArrayList<String> dirs = listRootDirectories(directory);
+        if (dirs.size() >= 2) {
+            // TODO(nschultz): use thread pooling instead
+            final List<String> dirs1 = dirs.subList(0, dirs.size() / 2);
+            final List<String> dirs2 = dirs.subList(dirs.size() / 2, dirs.size());
+
+            final ArrayList<String> collection1 = new ArrayList<>();
+            final Thread t1 = new Thread(() -> {
+                for (final String dir : dirs1) {
+                    listFiles(dir, file, collection1);
+                }
+            });
+            t1.setDaemon(true);
+            t1.start();
+
+            final ArrayList<String> collection2 = new ArrayList<>();
+            final Thread t2 = new Thread(() -> {
+                for (final String dir : dirs2) {
+                    listFiles(dir, file, collection2);
+                }
+            });
+            t2.setDaemon(true);
+            t2.start();
+
+            try {
+                t1.join();
+                t2.join();
+            } catch (final InterruptedException ex) {
+                assert false;
+            }
+            fileNames.addAll(collection1);
+            fileNames.addAll(collection2);
+        } else {
             listFiles(directory, file, fileNames);
-            progressBar.setMaximum(fileNames.size());
-            progressBar.setValue(0);
-            progressBar.setIndeterminate(false);
         }
 
-        final int cores = Runtime.getRuntime().availableProcessors();
+        progressBar.setMaximum(fileNames.size());
+        progressBar.setValue(0);
+        progressBar.setIndeterminate(false);
+
         if (fileNames.size() > cores * 2) {
             final List<List<Object>> slices = slice(fileNames.toArray(), cores);
             final ThreadPoolExecutor threadPool = createThreadPool(cores);
