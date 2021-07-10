@@ -214,7 +214,6 @@ public final class Main {
                                 final long took = end - start;
 
                                 EventQueue.invokeLater(() -> {
-                                    //resultLabel.setText("Occurences: " + occurences);
                                     timeLabel.setText("Time: " + took + " ms");
                                     searchField.setEnabled(true);
                                     progressBar.setValue(0);
@@ -308,7 +307,16 @@ public final class Main {
         });
         fileMenu.add(openMenuItem);
         fileMenu.add(exitMenuItem);
+
+        final JMenu helpMenu = new JMenu("Help");
+        final JMenuItem aboutMenuItem = new JMenuItem("About");
+        aboutMenuItem.addActionListener(e -> {
+            JOptionPane.showMessageDialog(Frame.getFrames()[0], "Seeker v0.1.0\nDeveloped by Niklas Schultz\nMIT License", "About", JOptionPane.INFORMATION_MESSAGE);
+        });
+        helpMenu.add(aboutMenuItem);
+
         menuBar.add(fileMenu);
+        menuBar.add(helpMenu);
 
         final JFrame frame = new JFrame("Seeker v0.1.0");
         frame.setIconImage(new ImageIcon("res/icon.png").getImage());
