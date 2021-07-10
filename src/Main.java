@@ -167,7 +167,6 @@ public final class Main {
         final JCheckBox multiThreadCheckBox = new JCheckBox("Use multiple threads");
         multiThreadCheckBox.addActionListener(e -> {
             if (multiThreadCheckBox.isSelected()) {
-                System.err.println("aaaa");
                 if (threadPool != null) {
                     threadPool.shutdown();
                 }
