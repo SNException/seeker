@@ -170,7 +170,14 @@ public final class Main {
         final JCheckBox multiThreadCheckBox = new JCheckBox("Use multiple threads");
         multiThreadCheckBox.setFocusable(false);
         multiThreadCheckBox.setBackground(mainColor);
-        searchFieldPanel.add(multiThreadCheckBox, BorderLayout.EAST);
+
+        final JCheckBox powerSafeCheckBox = new JCheckBox("Power safe mode");
+        powerSafeCheckBox.setFocusable(false);
+        powerSafeCheckBox.setBackground(mainColor);
+        final JPanel checkBoxPanel = new JPanel(new GridLayout(1, 2));
+        checkBoxPanel.add(multiThreadCheckBox);
+        checkBoxPanel.add(powerSafeCheckBox);
+        searchFieldPanel.add(checkBoxPanel, BorderLayout.EAST);
         fieldInputPanel.add(searchFieldPanel);
 
         final JPanel labelInputPanel = new JPanel(new GridLayout(3, 1, 10, 1));
@@ -201,9 +208,9 @@ public final class Main {
                                 final long start =  System.nanoTime() / 1000000;
                                 abort = false;
                                 if (multiThreadCheckBox.isSelected()) {
-                                    seekMultiThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText());
+                                    seekMultiThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText(), powerSafeCheckBox.isSelected());
                                 } else {
-                                    seekSingleThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText());
+                                    seekSingleThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText(), powerSafeCheckBox.isSelected());
                                 }
                                 final long end = System.nanoTime() / 1000000;
                                 final long took = end - start;
@@ -324,14 +331,24 @@ public final class Main {
         }
     }
 
-    private static ArrayList<String> listRootFiles(final String location) {
+    private static ArrayList<String> listRootFiles(final String location, final String filter) {
         assert location != null;
+        assert filter   != null;
 
         final ArrayList<String> fileNames = new ArrayList<>();
         final File[] files = new File(location).listFiles();
         for (final File file : files) {
             if (file.isFile()) {
-                fileNames.add(file.getAbsolutePath());
+                if (file.length() >= 100000000) { // 100 MB
+                    // TODO(nschultz): HACK!
+                    // File is to large for us to read into memory.
+                    // This is of course a hack and is just here to avoid OutOfMemory error to crash the application.
+                    System.err.printf("Skipped '%s' because it is to large!\n", file.getName());
+                    continue;
+                }
+                if (file.getName().matches(filter)) {
+                    fileNames.add(file.getAbsolutePath());
+                }
             }
         }
         return fileNames;
@@ -355,7 +372,7 @@ public final class Main {
     private static void seekSingleThreaded(final JProgressBar progressBar, final JLabel resultLabel,
                                            final JLabel scannedLabel, final JTable table,
                                            final String directory, final String file,
-                                           final String searchString) {
+                                           final String searchString, final boolean shouldSleep) {
 
         assert !EventQueue.isDispatchThread();
 
@@ -417,6 +434,20 @@ public final class Main {
             EventQueue.invokeLater(() -> {
                 scannedLabel.setText("Files scanned: " + scanned[0]);
             });
+
+            if (shouldSleep) {
+                sleepMillis(2);
+            }
+        }
+    }
+
+    private static void sleepMillis(final long millis) {
+        assert millis >= 0;
+
+        try {
+            Thread.sleep(millis, 0);
+        } catch (final InterruptedException ex) {
+            assert false;
         }
     }
 
@@ -465,13 +496,12 @@ public final class Main {
         return slices;
     }
 
-
     private static ThreadPoolExecutor threadPool = null; // init in main
 
     private static void seekMultiThreaded(final JProgressBar progressBar, final JLabel resultLabel,
                                          final JLabel scannedLabel, final JTable table,
                                          final String directory, final String file,
-                                         final String searchString) {
+                                         final String searchString, final boolean shouldSleep) {
 
         assert !EventQueue.isDispatchThread();
         assert threadPool   != null;
@@ -523,7 +553,7 @@ public final class Main {
             }
             fileNames.addAll(collection1);
             fileNames.addAll(collection2);
-            fileNames.addAll(listRootFiles(directory));
+            fileNames.addAll(listRootFiles(directory, file));
         } else {
             listFiles(directory, file, fileNames);
         }
@@ -578,6 +608,10 @@ public final class Main {
                             scannedLabel.setText("Files scanned: " + scanned.get());
                         });
                     }
+
+                    if (shouldSleep) {
+                        sleepMillis(2);
+                    }
                 });
                 futures.add(future);
             }
@@ -594,7 +628,7 @@ public final class Main {
             }
         } else {
             // TODO(nschultz): Count files twice in this case!!!
-            seekSingleThreaded(progressBar, resultLabel, scannedLabel, table, directory, file, searchString);
+            seekSingleThreaded(progressBar, resultLabel, scannedLabel, table, directory, file, searchString, shouldSleep);
         }
     }
 
