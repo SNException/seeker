@@ -32,10 +32,24 @@ public final class Main {
         }
     }
 
+    private static boolean checkIfFontInstalled(final String name) {
+        assert name != null;
+
+        final GraphicsEnvironment gfxEnv = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        final String[] fonts = gfxEnv.getAvailableFontFamilyNames();
+        for (final String font : fonts) {
+            if (font.equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void constructUI() {
         assert EventQueue.isDispatchThread();
 
-        final Font mainFont = new Font("Consolas", Font.PLAIN, 14); // TODO(nschultz): Check if font is installed
+        final String fontName = checkIfFontInstalled("Consolas") ? "Consolas" : "SansSerif"; // SansSerif should always exists since it is defined as one of the standard java fonts
+        final Font mainFont = new Font(fontName, Font.PLAIN, 14);
         final Color mainColor = new Color(235, 233, 216);
         UIManager.put("CheckBox.font", mainFont);
         UIManager.put("Label.font", mainFont);
@@ -44,24 +58,6 @@ public final class Main {
         UIManager.put("TextField.font", mainFont);
 
         final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-
-        final JMenuBar menuBar = new JMenuBar() {
-            @Override
-            public void paintComponent(final Graphics g) {
-                super.paintComponent(g);
-                g.setColor(mainColor);
-                g.fillRect(0, 0, getWidth() - 1, getHeight() - 1);
-            }
-        };
-        final JMenu fileMenu = new JMenu("File");
-        final JMenuItem exitMenuItem = new JMenuItem("Exit");
-        exitMenuItem.setOpaque(true);
-        exitMenuItem.setBackground(mainColor);
-        exitMenuItem.addActionListener(e -> {
-            System.exit(0);
-        });
-        fileMenu.add(exitMenuItem);
-        menuBar.add(fileMenu);
 
         final JPanel resultPanel = new JPanel(new BorderLayout());
         resultPanel.setBackground(mainColor);
@@ -240,6 +236,11 @@ public final class Main {
                                 Runtime.getRuntime().gc();
                                 Runtime.getRuntime().runFinalization();
 
+                                EventQueue.invokeLater(() -> {
+                                    progressBar.setIndeterminate(false);
+                                    progressBar.setValue(0);
+                                });
+
                                 // flush display buffer to make sure the user is seeing all the updates
                                 Toolkit.getDefaultToolkit().sync();
                             }
@@ -275,6 +276,39 @@ public final class Main {
                 return false;
             }
         });
+
+        final JMenuBar menuBar = new JMenuBar() {
+            @Override
+            public void paintComponent(final Graphics g) {
+                super.paintComponent(g);
+                g.setColor(mainColor);
+                g.fillRect(0, 0, getWidth() - 1, getHeight() - 1);
+            }
+        };
+        final JMenu fileMenu = new JMenu("File");
+        final JMenuItem openMenuItem = new JMenuItem("Open...");
+        openMenuItem.setOpaque(true);
+        openMenuItem.setBackground(mainColor);
+        openMenuItem.addActionListener(e -> {
+            final JFileChooser chooser = new JFileChooser();
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            final int option = chooser.showOpenDialog(Frame.getFrames()[0]); // HACK!
+            if (option == JFileChooser.APPROVE_OPTION) {
+                final String dst = chooser.getSelectedFile().getAbsolutePath();
+                dirField.setText(dst);
+                dirField.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+            }
+        });
+
+        final JMenuItem exitMenuItem = new JMenuItem("Exit");
+        exitMenuItem.setOpaque(true);
+        exitMenuItem.setBackground(mainColor);
+        exitMenuItem.addActionListener(e -> {
+            System.exit(0);
+        });
+        fileMenu.add(openMenuItem);
+        fileMenu.add(exitMenuItem);
+        menuBar.add(fileMenu);
 
         final JFrame frame = new JFrame("Seeker v0.1.0");
         frame.setIconImage(new ImageIcon("res/icon.png").getImage());
