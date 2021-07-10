@@ -468,14 +468,13 @@ public final class Main {
 
     private static ThreadPoolExecutor threadPool = null; // init in main
 
-    // TODO(nschultz): Can not abort mutli threaded seek yet!
     private static void seekMultiThreaded(final JProgressBar progressBar, final JLabel resultLabel,
                                          final JLabel scannedLabel, final JTable table,
                                          final String directory, final String file,
                                          final String searchString) {
 
         assert !EventQueue.isDispatchThread();
-        assert threadPool != null;
+        assert threadPool   != null;
 
         assert resultLabel  != null;
         assert scannedLabel != null;
@@ -499,6 +498,7 @@ public final class Main {
             final ArrayList<String> collection1 = new ArrayList<>();
             final Thread t1 = new Thread(() -> {
                 for (final String dir : dirs1) {
+                    if (abort) break;
                     listFiles(dir, file, collection1);
                 }
             });
@@ -508,6 +508,7 @@ public final class Main {
             final ArrayList<String> collection2 = new ArrayList<>();
             final Thread t2 = new Thread(() -> {
                 for (final String dir : dirs2) {
+                    if (abort) break;
                     listFiles(dir, file, collection2);
                 }
             });
@@ -527,19 +528,24 @@ public final class Main {
             listFiles(directory, file, fileNames);
         }
 
+        if (abort) return;
+
         progressBar.setMaximum(fileNames.size());
         progressBar.setValue(0);
         progressBar.setIndeterminate(false);
 
         if (fileNames.size() > cores * 2) {
-            final List<List<Object>> slices = slice(fileNames.toArray(), cores);
+            final List<List<Object>> slices = slice(fileNames.toArray(), cores); // TODO(nschultz): chunk size might not be the most efficient right now
 
             final AtomicInteger occurences = new AtomicInteger(0);
             final AtomicInteger scanned    = new AtomicInteger(1);
             final ArrayList<Future> futures = new ArrayList<>();
             for (final List<Object> slice : slices) {
+                if (abort) break;
                 final Future<?> future = threadPool.submit(() -> {
                     for (final Object o : slice) {
+                        if (abort) break;
+
                         final String fileName = (String) o;
 
                         final String[] lines = readLines(fileName);
