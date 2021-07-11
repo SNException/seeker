@@ -465,20 +465,12 @@ public final class Main {
         frame.setVisible(true);
     }
 
-    private static String[] readLines(final String name) {
+    private static List<String> readLines(final String name) {
         assert name != null;
 
-        final File file = new File(name);
-        final StringBuilder sbuffer = new StringBuilder(4096);
-        try (final InputStream in = new FileInputStream(file)) {
-            for (;;) {
-                final byte[] chunk = new byte[4096]; // likely a page
-                final int readBytes = in.read(chunk);
-                if (readBytes == -1) return sbuffer.toString().split("\n");
-
-                sbuffer.append(new String(chunk, 0, readBytes));
-            }
-        }  catch (final IOException eX) {
+        try {
+            return Files.readAllLines(Paths.get(name));
+        } catch (final IOException ex) {
             return null;
         }
     }
@@ -581,7 +573,7 @@ public final class Main {
         for (final String fileName : fileNames) {
             if (abort) return;
 
-            final String[] lines = readLines(fileName);
+            final List<String> lines = readLines(fileName);
             if (lines != null) {
                 final int[] lineNr = {0};
                 for (final String line : lines) {
@@ -761,7 +753,7 @@ public final class Main {
 
                         final String fileName = (String) o;
 
-                        final String[] lines = readLines(fileName);
+                        final List<String> lines = readLines(fileName);
                         if (lines != null) {
                             final AtomicInteger lineNr = new AtomicInteger(0);
                             for (final String line : lines) {
@@ -784,6 +776,7 @@ public final class Main {
                             // System.err.println("Failed to read: " + fileName);
                         }
                         EventQueue.invokeLater(() -> { // TODO(nschultz): NOT THREAD SAFE!
+                            // System.err.println(progressBar.getValue());
                             progressBar.setValue(progressBar.getValue() + 1);
                         });
                         scanned.incrementAndGet();
