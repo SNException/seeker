@@ -295,7 +295,17 @@ public final class Main {
         final JMenu optionsMenu = new JMenu("Options");
         optionsMenu.setBackground(mainColor);
 
-        final JCheckBoxMenuItem multiThreadCheckBoxItem = new JCheckBoxMenuItem("Use multiple threads");
+        final JCheckBoxMenuItem multiThreadCheckBoxItem = new JCheckBoxMenuItem("Use multiple threads") {
+            @Override
+            protected void processMouseEvent(final MouseEvent evt) {
+                if (evt.getID() == MouseEvent.MOUSE_RELEASED && contains(evt.getPoint())) {
+                    super.doClick();
+                    super.setArmed(true);
+                } else {
+                    super.processMouseEvent(evt);
+                }
+            }
+        };
         multiThreadCheckBoxItem.setFocusable(false);
         multiThreadCheckBoxItem.setOpaque(true);
         multiThreadCheckBoxItem.setBackground(mainColor);
@@ -311,7 +321,17 @@ public final class Main {
             }
         });
 
-        final JCheckBoxMenuItem powerSafeCheckBoxItem = new JCheckBoxMenuItem("Power safe mode");
+        final JCheckBoxMenuItem powerSafeCheckBoxItem = new JCheckBoxMenuItem("Power safe mode") {
+            @Override
+            protected void processMouseEvent(final MouseEvent evt) {
+                if (evt.getID() == MouseEvent.MOUSE_RELEASED && contains(evt.getPoint())) {
+                    super.doClick();
+                    super.setArmed(true);
+                } else {
+                    super.processMouseEvent(evt);
+                }
+            }
+        };
         powerSafeCheckBoxItem.setFocusable(false);
         powerSafeCheckBoxItem.setOpaque(true);
         powerSafeCheckBoxItem.setBackground(mainColor);
