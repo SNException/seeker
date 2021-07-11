@@ -239,6 +239,12 @@ public final class Main {
                 final File dst = chooser.getSelectedFile();
 
                 final StringBuilder sbuffer = new StringBuilder(); {
+                    sbuffer.append("Directory: " + dirField.getText() + "\n");
+                    sbuffer.append("Filter: " + fileField.getText() + "\n");
+                    sbuffer.append("Search: " + searchField.getText() + "\n");
+
+                    sbuffer.append("\n");
+
                     for (final Object o : data) {
                         sbuffer.append(o.toString() + "\n");
                     }
