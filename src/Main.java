@@ -13,6 +13,7 @@ import javax.swing.plaf.basic.*;
 import javax.swing.table.*;
 
 // TODO(nschultz): read N MB / sec display
+// TODO(nschultz): DirectoryStream is supposed to be faster then File.listFiles()
 public final class Main {
 
     static {
@@ -309,6 +310,7 @@ public final class Main {
         multiThreadCheckBoxItem.setFocusable(false);
         multiThreadCheckBoxItem.setOpaque(true);
         multiThreadCheckBoxItem.setBackground(mainColor);
+        multiThreadCheckBoxItem.setToolTipText("Use N threads to speed up the file processing. Where N is the number of CPU cores your system has.");
         multiThreadCheckBoxItem.addActionListener(e -> {
             if (multiThreadCheckBoxItem.isSelected()) {
                 if (threadPool != null) {
