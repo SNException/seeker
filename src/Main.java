@@ -15,6 +15,7 @@ import javax.swing.table.*;
 // TODO(nschultz): read N MB / sec display
 // TODO(nschultz): DirectoryStream is supposed to be faster than File.listFiles()
 // TODO(nschultz): N occurences in N different files
+// TODO(nschultz): On windows we can use 'dir /B /S'
 public final class Main {
 
     static {
