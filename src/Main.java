@@ -573,7 +573,7 @@ public final class Main {
         }
 
         int[] occurences = {0};
-        int[] scanned    = {1};
+        int[] scanned    = {0};
         for (final String fileName : fileNames) {
             if (abort) return;
 
@@ -751,7 +751,7 @@ public final class Main {
             final List<List<Object>> slices = slice(fileNames.toArray(), cores); // TODO(nschultz): chunk size might not be the most efficient right now
 
             final AtomicInteger occurences = new AtomicInteger(0);
-            final AtomicInteger scanned    = new AtomicInteger(1);
+            final AtomicInteger scanned    = new AtomicInteger(0);
             final ArrayList<Future> futures = new ArrayList<>();
             for (final List<Object> slice : slices) {
                 if (abort) break;
