@@ -13,7 +13,8 @@ import javax.swing.plaf.basic.*;
 import javax.swing.table.*;
 
 // TODO(nschultz): read N MB / sec display
-// TODO(nschultz): DirectoryStream is supposed to be faster then File.listFiles()
+// TODO(nschultz): DirectoryStream is supposed to be faster than File.listFiles()
+// TODO(nschultz): N occurences in N different files
 public final class Main {
 
     static {
@@ -616,6 +617,10 @@ public final class Main {
                 sleepMillis(2);
             }
         }
+
+        if (occurences[0] == 0) {
+            resultLabel.setText("Occurences: " + 0);
+        }
     }
 
     private static void sleepMillis(final long millis) {
@@ -803,6 +808,10 @@ public final class Main {
                 } catch (final InterruptedException ex) {
                     assert false : "Not supposed to interrupt this!";
                 }
+            }
+
+            if (occurences.get() == 0) {
+                resultLabel.setText("Occurences: " + 0);
             }
         } else {
             // TODO(nschultz): Count files twice in this case!!!
