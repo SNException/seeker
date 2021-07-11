@@ -13,7 +13,6 @@ import javax.swing.plaf.basic.*;
 import javax.swing.table.*;
 
 // TODO(nschultz): read N MB / sec display
-// TODO(nschultz): Preference dialog where all the setting will 'live'
 public final class Main {
 
     static {
@@ -83,24 +82,6 @@ public final class Main {
                return component;
             }*/
         };
-        resultTable.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(final MouseEvent evt) {
-                final Point point = evt.getPoint();
-                final int row = resultTable.rowAtPoint(point);
-                if (evt.getClickCount() == 2 && resultTable.getSelectedRow() != -1) {
-                    // TODO(nschultz): Hacky, gvim is not installed everywhere
-                    final String fileName = dtm.getValueAt(row, 0).toString();
-                    final String lineNr   = dtm.getValueAt(row, 1).toString();
-                    try {
-                        // Runtime.getRuntime().exec(String.format("gvim +%s \"%s\"", lineNr, fileName));
-                        Runtime.getRuntime().exec(String.format("gvim --remote-silent +%s \"%s\"", lineNr, fileName));
-                    } catch (final IOException ex) {
-                        ex.printStackTrace(System.err); // TODO(nschultz): Temporary
-                    }
-                }
-            }
-        });
         resultTable.setFillsViewportHeight(true);
         resultTable.getTableHeader().setReorderingAllowed(false);
         resultTable.getTableHeader().setOpaque(false);
@@ -165,30 +146,6 @@ public final class Main {
         final JPanel searchFieldPanel = new JPanel(new BorderLayout());
         searchFieldPanel.setBackground(mainColor);
         searchFieldPanel.add(searchField, BorderLayout.CENTER);
-        final JCheckBox multiThreadCheckBox = new JCheckBox("Use multiple threads");
-        multiThreadCheckBox.addActionListener(e -> {
-            if (multiThreadCheckBox.isSelected()) {
-                if (threadPool != null) {
-                    threadPool.shutdown();
-                }
-                // Recreate the threadpool when the checkbox gets toggled.
-                // We have to do this because 'availableProcessors' can return different values overtime.
-                final int cores = Runtime.getRuntime().availableProcessors();
-                threadPool = createThreadPool(cores);
-            }
-        });
-        multiThreadCheckBox.setToolTipText("Use N threads to speed up the search. Where N is the number of CPU cores your system has.");
-        multiThreadCheckBox.setFocusable(false);
-        multiThreadCheckBox.setBackground(mainColor);
-
-        final JCheckBox powerSafeCheckBox = new JCheckBox("Power safe mode");
-        powerSafeCheckBox.setFocusable(false);
-        powerSafeCheckBox.setBackground(mainColor);
-        powerSafeCheckBox.setToolTipText("After each file is processed let the current executing thread sleep for a bit to reduce CPU usage.");
-        final JPanel checkBoxPanel = new JPanel(new GridLayout(1, 2));
-        checkBoxPanel.add(multiThreadCheckBox);
-        checkBoxPanel.add(powerSafeCheckBox);
-        searchFieldPanel.add(checkBoxPanel, BorderLayout.EAST);
         fieldInputPanel.add(searchFieldPanel);
 
         final JPanel labelInputPanel = new JPanel(new GridLayout(3, 1, 10, 1));
@@ -196,72 +153,6 @@ public final class Main {
         final JLabel dirFieldLabel    = new JLabel("Directory ");
         final JLabel fileFieldLabel   = new JLabel("File");
         final JLabel searchFieldLabel = new JLabel("Text");
-        searchField.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(final KeyEvent evt) {
-                switch (evt.getKeyCode()) {
-                    case KeyEvent.VK_ENTER: {
-                        if (searchField.getText().strip().isEmpty()) return;
-
-                        // clear previous results
-                        dtm.getDataVector().removeAllElements();
-                        dtm.fireTableDataChanged();
-                        resultTable.repaint();
-
-                        new Thread(() -> {
-                            try {
-                                EventQueue.invokeLater(() -> {
-                                    searchField.setEnabled(false);
-                                    resultLabel.setText("Occurences: collecting...");
-                                    timeLabel.setText("Time: collecting...");
-                                    scannedLabel.setText("Files scanned: collecting...");
-                                });
-
-                                final long start =  System.nanoTime() / 1000000;
-                                abort = false;
-                                if (multiThreadCheckBox.isSelected()) {
-                                    seekMultiThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText(), powerSafeCheckBox.isSelected());
-                                } else {
-                                    seekSingleThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText(), powerSafeCheckBox.isSelected());
-                                }
-                                final long end = System.nanoTime() / 1000000;
-                                final long took = end - start;
-
-                                EventQueue.invokeLater(() -> {
-                                    timeLabel.setText("Time: " + took + " ms");
-                                    searchField.setEnabled(true);
-                                    progressBar.setValue(0);
-                                });
-                            } catch (final Throwable ex) {
-                                ex.printStackTrace(System.err); // TODO(nschultz): Temporary
-                                EventQueue.invokeLater(() -> {
-                                    searchField.setEnabled(true);
-                                    resultLabel.setText("Occurences: -1");
-                                    timeLabel.setText("Time: -1");
-                                    scannedLabel.setText("Files scanned: -1");
-                                    progressBar.setIndeterminate(false);
-                                    progressBar.setValue(0);
-                                });
-                            } finally {
-                                abort = false;
-
-                                // try to free some memory
-                                Runtime.getRuntime().gc();
-                                Runtime.getRuntime().runFinalization();
-
-                                EventQueue.invokeLater(() -> {
-                                    progressBar.setIndeterminate(false);
-                                    progressBar.setValue(0);
-                                });
-
-                                // flush display buffer to make sure the user is seeing all the updates
-                                Toolkit.getDefaultToolkit().sync();
-                            }
-                        }).start();
-                    } break;
-                }
-            }
-        });
         labelInputPanel.add(dirFieldLabel);
         labelInputPanel.add(fileFieldLabel);
         labelInputPanel.add(searchFieldLabel);
@@ -286,9 +177,22 @@ public final class Main {
                     progressBar.setValue(0);
                 }
 
-                /*if (evt.getKeyCode() == KeyEvent.VK_TAB) {
-                    searchField.requestFocus();
-                }*/
+                // TODO(nschultz): This fires to often making it hard to toggle
+                if (evt.getKeyCode() == KeyEvent.VK_F11) {
+                    final Frame frame = Frame.getFrames()[0];
+
+                    frame.dispose();
+
+                    if (frame.isUndecorated()) {
+                        frame.setUndecorated(false);
+                        frame.setSize(screenSize.width / 2, screenSize.height / 2);
+                    } else {
+                        frame.setUndecorated(true);
+                        frame.setSize(screenSize.width, screenSize.height);
+                    }
+                    frame.setLocationRelativeTo(null);
+                    frame.setVisible(true);
+                }
 
                 return false;
             }
@@ -382,15 +286,148 @@ public final class Main {
         fileMenu.add(new JSeparator());
         fileMenu.add(exitMenuItem);
 
+        final JMenu optionsMenu = new JMenu("Options");
+        optionsMenu.setBackground(mainColor);
+
+        final JCheckBoxMenuItem multiThreadCheckBoxItem = new JCheckBoxMenuItem("Use multiple threads");
+        multiThreadCheckBoxItem.setFocusable(false);
+        multiThreadCheckBoxItem.setOpaque(true);
+        multiThreadCheckBoxItem.setBackground(mainColor);
+        multiThreadCheckBoxItem.addActionListener(e -> {
+            if (multiThreadCheckBoxItem.isSelected()) {
+                if (threadPool != null) {
+                    threadPool.shutdown();
+                }
+                // Recreate the threadpool when the checkbox gets toggled.
+                // We have to do this because 'availableProcessors' can return different values overtime.
+                final int cores = Runtime.getRuntime().availableProcessors();
+                threadPool = createThreadPool(cores);
+            }
+        });
+
+        final JCheckBoxMenuItem powerSafeCheckBoxItem = new JCheckBoxMenuItem("Power safe mode");
+        powerSafeCheckBoxItem.setFocusable(false);
+        powerSafeCheckBoxItem.setOpaque(true);
+        powerSafeCheckBoxItem.setBackground(mainColor);
+        powerSafeCheckBoxItem.setToolTipText("After each file is processed let the current executing thread sleep for a bit to reduce CPU usage.");
+
+        final JPanel menuPanel = new JPanel(new BorderLayout());
+        menuPanel.setBackground(mainColor);
+        menuPanel.add(new JLabel("Editor "), BorderLayout.WEST);
+        final JTextField editorField = new JTextField();
+        menuPanel.add(editorField, BorderLayout.CENTER);
+        editorField.setText("gvim --remote-silent \"%s\" +%s");
+        optionsMenu.add(multiThreadCheckBoxItem);
+        optionsMenu.add(powerSafeCheckBoxItem);
+        optionsMenu.add(menuPanel);
+
         final JMenu helpMenu = new JMenu("Help");
+        helpMenu.setBackground(mainColor);
         final JMenuItem aboutMenuItem = new JMenuItem("About");
+        aboutMenuItem.setOpaque(true);
+        aboutMenuItem.setBackground(mainColor);
         aboutMenuItem.addActionListener(e -> {
             JOptionPane.showMessageDialog(Frame.getFrames()[0], "Seeker v0.1.0\nDeveloped by Niklas Schultz\nMIT License", "About", JOptionPane.INFORMATION_MESSAGE);
         });
         helpMenu.add(aboutMenuItem);
 
         menuBar.add(fileMenu);
+        menuBar.add(optionsMenu);
         menuBar.add(helpMenu);
+
+        resultTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(final MouseEvent evt) {
+                final Point point = evt.getPoint();
+                final int row = resultTable.rowAtPoint(point);
+                if (evt.getClickCount() == 2 && resultTable.getSelectedRow() != -1) {
+                    final String fileName = dtm.getValueAt(row, 0).toString();
+                    final String lineNr   = dtm.getValueAt(row, 1).toString();
+                    try {
+                        // Runtime.getRuntime().exec(String.format("gvim --remote-silent +%s \"%s\"", lineNr, fileName));
+                        Runtime.getRuntime().exec(String.format(editorField.getText(), fileName, lineNr));
+                    } catch (final IOException ex) {
+                        JOptionPane.showMessageDialog(Frame.getFrames()[0], "Failed to open editor!", "Failure", JOptionPane.ERROR_MESSAGE);
+
+                        // fallback if editor of choice could not be found
+                        /*try {
+                            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.EDIT)) {
+                                Desktop.getDesktop().edit(new File(fileName));
+                            }
+                        } catch (final IOException ex2) {
+                            ex2.printStackTrace();
+                        }*/
+                    }
+                }
+            }
+        });
+
+        searchField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(final KeyEvent evt) {
+                switch (evt.getKeyCode()) {
+                    case KeyEvent.VK_ENTER: {
+                        if (searchField.getText().strip().isEmpty()) return;
+
+                        // clear previous results
+                        dtm.getDataVector().removeAllElements();
+                        dtm.fireTableDataChanged();
+                        resultTable.repaint();
+
+                        new Thread(() -> {
+                            try {
+                                EventQueue.invokeLater(() -> {
+                                    searchField.setEnabled(false);
+                                    resultLabel.setText("Occurences: collecting...");
+                                    timeLabel.setText("Time: collecting...");
+                                    scannedLabel.setText("Files scanned: collecting...");
+                                });
+
+                                final long start =  System.nanoTime() / 1000000;
+                                abort = false;
+                                if (multiThreadCheckBoxItem.isSelected()) {
+                                    seekMultiThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText(), powerSafeCheckBoxItem.isSelected());
+                                } else {
+                                    seekSingleThreaded(progressBar, resultLabel, scannedLabel, resultTable, dirField.getText(), fileField.getText(), searchField.getText(),powerSafeCheckBoxItem.isSelected());
+                                }
+                                final long end = System.nanoTime() / 1000000;
+                                final long took = end - start;
+
+                                EventQueue.invokeLater(() -> {
+                                    timeLabel.setText("Time: " + took + " ms");
+                                    searchField.setEnabled(true);
+                                    progressBar.setValue(0);
+                                });
+                            } catch (final Throwable ex) {
+                                ex.printStackTrace(System.err); // TODO(nschultz): Temporary
+                                EventQueue.invokeLater(() -> {
+                                    searchField.setEnabled(true);
+                                    resultLabel.setText("Occurences: -1");
+                                    timeLabel.setText("Time: -1");
+                                    scannedLabel.setText("Files scanned: -1");
+                                    progressBar.setIndeterminate(false);
+                                    progressBar.setValue(0);
+                                });
+                            } finally {
+                                abort = false;
+
+                                // try to free some memory
+                                Runtime.getRuntime().gc();
+                                Runtime.getRuntime().runFinalization();
+
+                                EventQueue.invokeLater(() -> {
+                                    progressBar.setIndeterminate(false);
+                                    progressBar.setValue(0);
+                                });
+
+                                // flush display buffer to make sure the user is seeing all the updates
+                                Toolkit.getDefaultToolkit().sync();
+                            }
+                        }).start();
+                    } break;
+                }
+            }
+        });
 
         final JFrame frame = new JFrame("Seeker v0.1.0");
         frame.setIconImage(new ImageIcon("res/icon.png").getImage());
